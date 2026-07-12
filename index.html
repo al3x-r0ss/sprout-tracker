@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprout — Growth Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0F0A1F;
+    --bg-elevated:#150E29;
+    --card:#1B1333;
+    --card-border:#2E2350;
+    --card-border-hover:#43336E;
+    --primary:#8B5CF6;
+    --primary-bright:#A78BFA;
+    --primary-glow:#C4B5FD;
+    --gold:#FBBF24;
+    --green:#34D399;
+    --red:#F87171;
+    --text-primary:#F5F3FF;
+    --text-secondary:#A9A0C7;
+    --text-muted:#6B6289;
+    --radius:16px;
+    --radius-sm:10px;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(139,92,246,0.16), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(196,181,253,0.10), transparent 55%),
+      var(--bg);
+    color:var(--text-primary);
+    font-family:var(--font-body);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--primary); color:#fff; }
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer;}
+  input, select{font-family:inherit;}
+
+  /* ---------- Scaffolding ---------- */
+  .app{ max-width:1100px; margin:0 auto; padding:28px 20px 80px; }
+  .hidden{ display:none !important; }
+
+  /* ---------- Auth screen ---------- */
+  .auth-wrap{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .auth-card{
+    width:100%; max-width:380px; background:var(--card); border:1px solid var(--card-border);
+    border-radius:var(--radius); padding:36px 32px; position:relative; overflow:hidden;
+  }
+  .auth-card::before{
+    content:''; position:absolute; top:-60px; right:-60px; width:180px; height:180px;
+    background:radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%); pointer-events:none;
+  }
+  .auth-logo{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .auth-logo .mark{ font-size:26px; }
+  .auth-logo span{ font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:-0.02em; }
+  .auth-sub{ color:var(--text-secondary); font-size:13.5px; margin-bottom:26px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-secondary); margin-bottom:6px; font-weight:600; }
+  .field input{
+    width:100%; padding:11px 13px; border-radius:var(--radius-sm); border:1px solid var(--card-border);
+    background:var(--bg-elevated); color:var(--text-primary); font-size:14px; outline:none;
+    transition:border-color .15s;
+  }
+  .field input:focus{ border-color:var(--primary); }
+  .btn{
+    width:100%; padding:12px 16px; border-radius:var(--radius-sm); border:none; font-weight:600; font-size:14px;
+    transition:transform .12s, box-shadow .12s, opacity .12s;
+  }
+  .btn-primary{ background:linear-gradient(135deg, var(--primary), #7C3AED); color:#fff; box-shadow:0 6px 20px -6px rgba(139,92,246,0.6); }
+  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 10px 26px -6px rgba(139,92,246,0.75); }
+  .btn-primary:active{ transform:translateY(0); }
+  .btn-ghost{ background:transparent; color:var(--text-secondary); border:1px solid var(--card-border); }
+  .btn-ghost:hover{ border-color:var(--card-border-hover); color:var(--text-primary); }
+  .auth-toggle{ text-align:center; margin-top:16px; font-size:13px; color:var(--text-secondary); }
+  .auth-toggle button{ background:none; border:none; color:var(--primary-bright); font-weight:600; font-size:13px; }
+  .auth-error{ color:var(--red); font-size:12.5px; margin-top:10px; min-height:16px; }
+  .auth-note{ margin-top:20px; font-size:11.5px; color:var(--text-muted); line-height:1.5; }
+
+  /* ---------- Header ---------- */
+  header.topbar{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:30px;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .mark{ font-size:24px; }
+  .brand-text{ font-family:var(--font-display); font-weight:700; font-size:19px; letter-spacing:-0.02em; }
+  .brand-text small{ display:block; font-family:var(--font-body); font-weight:500; font-size:11px; color:var(--text-muted); }
+  .topbar-right{ display:flex; align-items:center; gap:14px; }
+  .user-pill{
+    display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--card-border);
+    padding:7px 12px 7px 7px; border-radius:999px; font-size:12.5px; color:var(--text-secondary);
+  }
+  .user-pill .dot{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#1B1333; }
+  .signout{ background:none; border:none; color:var(--text-muted); font-size:12.5px; }
+  .signout:hover{ color:var(--red); }
+
+  /* ---------- Hero: Growth Ring ---------- */
+  .hero{
+    display:grid; grid-template-columns:auto 1fr; gap:36px; align-items:center;
+    background:linear-gradient(160deg, var(--card), var(--bg-elevated));
+    border:1px solid var(--card-border); border-radius:20px; padding:30px 34px; margin-bottom:22px;
+    position:relative; overflow:hidden;
+  }
+  .hero::after{
+    content:''; position:absolute; bottom:-100px; left:40%; width:260px; height:260px;
+    background:radial-gradient(circle, rgba(139,92,246,0.20), transparent 70%); pointer-events:none;
+  }
+  .ring-wrap{ position:relative; width:150px; height:150px; flex-shrink:0; }
+  .ring-wrap svg{ transform:rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:var(--bg-elevated); stroke-width:11; }
+  .ring-fg{ fill:none; stroke:url(#ringGrad); stroke-width:11; stroke-linecap:round; transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1); }
+  .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-center .lvl-label{ font-size:10.5px; color:var(--text-muted); font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
+  .ring-center .lvl-num{ font-family:var(--font-display); font-size:30px; font-weight:700; color:var(--gold); line-height:1.1; }
+  .ring-center .lvl-badge{ font-size:18px; margin-top:2px; }
+
+  .hero-stats{ position:relative; z-index:1; }
+  .hero-stats .eyebrow{ font-size:12px; color:var(--text-secondary); font-weight:600; letter-spacing:.03em; margin-bottom:4px; }
+  .hero-total{ font-family:var(--font-display); font-size:44px; font-weight:700; letter-spacing:-0.02em; }
+  .hero-total .cents{ font-size:24px; color:var(--text-secondary); }
+  .hero-change{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:13.5px; font-weight:600; padding:5px 11px; border-radius:999px; }
+  .hero-change.up{ color:var(--green); background:rgba(52,211,153,0.12); }
+  .hero-change.down{ color:var(--red); background:rgba(248,113,113,0.12); }
+  .hero-change.flat{ color:var(--text-secondary); background:rgba(169,160,199,0.1); }
+  .xp-track{ margin-top:16px; max-width:340px; }
+  .xp-bar-bg{ height:8px; background:var(--bg-elevated); border-radius:999px; overflow:hidden; border:1px solid var(--card-border); }
+  .xp-bar-fill{ height:100%; background:linear-gradient(90deg, var(--primary), var(--gold)); border-radius:999px; transition:width 1s cubic-bezier(.4,0,.2,1); }
+  .xp-caption{ font-size:11.5px; color:var(--text-muted); margin-top:6px; }
+
+  /* ---------- Stat grid ---------- */
+  .stat-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:22px; }
+  .stat-card{
+    background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius); padding:18px 20px;
+    transition:border-color .15s, transform .15s;
+  }
+  .stat-card:hover{ border-color:var(--card-border-hover); transform:translateY(-2px); }
+  .stat-card .label{ font-size:12px; color:var(--text-secondary); font-weight:600; margin-bottom:8px; }
+  .stat-card .value{ font-family:var(--font-mono); font-size:22px; font-weight:600; }
+  .stat-card .sub{ font-size:11.5px; color:var(--text-muted); margin-top:5px; }
+
+  /* ---------- Section shells ---------- */
+  .section{
+    background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
+    padding:24px 24px 26px; margin-bottom:20px;
+  }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .section-head h2{ font-family:var(--font-display); font-size:16.5px; font-weight:600; }
+  .section-head .count{ font-size:12px; color:var(--text-muted); }
+
+  /* Chart */
+  .chart-wrap{ height:230px; }
+
+  /* Add entry form */
+  .entry-form{ display:grid; grid-template-columns:1.1fr 1fr 1fr 1.4fr auto; gap:10px; align-items:end; }
+  .entry-form .field{ margin-bottom:0; }
+  .entry-form select, .entry-form input{
+    width:100%; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid var(--card-border);
+    background:var(--bg-elevated); color:var(--text-primary); font-size:13.5px; outline:none;
+  }
+  .entry-form select:focus, .entry-form input:focus{ border-color:var(--primary); }
+  .entry-form .btn-primary{ padding:10px 18px; white-space:nowrap; width:auto; }
+
+  /* Ledger table */
+  table{ width:100%; border-collapse:collapse; margin-top:16px; }
+  thead th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
+    font-weight:600; padding:0 10px 10px; border-bottom:1px solid var(--card-border);
+  }
+  tbody td{ padding:12px 10px; font-size:13.5px; border-bottom:1px solid rgba(46,35,80,0.5); }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:rgba(139,92,246,0.05); }
+  .cat-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+  .cat-savings{ background:rgba(139,92,246,0.15); color:var(--primary-glow); }
+  .cat-investments{ background:rgba(52,211,153,0.13); color:var(--green); }
+  .cat-income{ background:rgba(251,191,36,0.13); color:var(--gold); }
+  .cat-other{ background:rgba(169,160,199,0.12); color:var(--text-secondary); }
+  .amt{ font-family:var(--font-mono); font-weight:600; }
+  .amt.neg{ color:var(--red); }
+  .amt.pos{ color:var(--green); }
+  .row-del{ background:none; border:none; color:var(--text-muted); font-size:15px; padding:4px 8px; border-radius:6px; }
+  .row-del:hover{ color:var(--red); background:rgba(248,113,113,0.1); }
+  .empty-state{ text-align:center; padding:36px 10px; color:var(--text-muted); font-size:13.5px; }
+  .empty-state .emoji{ font-size:30px; margin-bottom:8px; display:block; }
+
+  /* Goals */
+  .goals-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px; }
+  .goal-card{
+    background:var(--bg-elevated); border:1px solid var(--card-border); border-radius:var(--radius-sm);
+    padding:16px 18px; position:relative; overflow:hidden;
+  }
+  .goal-card.complete{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+  .goal-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .goal-emoji{ font-size:22px; }
+  .goal-title{ font-weight:600; font-size:14px; margin-bottom:2px; }
+  .goal-amounts{ font-family:var(--font-mono); font-size:12px; color:var(--text-secondary); margin-bottom:10px; }
+  .goal-bar-bg{ height:7px; background:var(--bg); border-radius:999px; overflow:hidden; border:1px solid var(--card-border); }
+  .goal-bar-fill{ height:100%; border-radius:999px; background:linear-gradient(90deg,var(--primary),var(--primary-bright)); transition:width .8s ease; }
+  .goal-bar-fill.done{ background:linear-gradient(90deg,var(--gold),#FDE68A); }
+  .goal-pct{ font-size:11px; color:var(--text-muted); margin-top:6px; }
+  .goal-del{ position:absolute; top:10px; right:10px; background:none; border:none; color:var(--text-muted); font-size:13px; opacity:0; transition:opacity .15s; }
+  .goal-card:hover .goal-del{ opacity:1; }
+  .goal-del:hover{ color:var(--red); }
+  .add-goal-card{
+    border:1.5px dashed var(--card-border); border-radius:var(--radius-sm); display:flex; align-items:center;
+    justify-content:center; min-height:110px; cursor:pointer; color:var(--text-muted); font-size:13px; font-weight:600;
+    transition:border-color .15s, color .15s;
+  }
+  .add-goal-card:hover{ border-color:var(--primary); color:var(--primary-bright); }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(6,3,15,0.7); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .modal{
+    background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
+    padding:26px 26px 24px; width:100%; max-width:340px;
+  }
+  .modal h3{ font-family:var(--font-display); font-size:16px; margin-bottom:16px; }
+  .modal-actions{ display:flex; gap:10px; margin-top:18px; }
+  .modal-actions .btn{ flex:1; }
+  .emoji-picker{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .emoji-opt{ width:36px; height:36px; border-radius:8px; border:1px solid var(--card-border); background:var(--bg-elevated); font-size:16px; display:flex; align-items:center; justify-content:center; }
+  .emoji-opt.selected{ border-color:var(--primary); background:rgba(139,92,246,0.15); }
+
+  /* Toast (milestone) */
+  .toast{
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
+    background:linear-gradient(135deg,var(--primary),#7C3AED); color:#fff; padding:14px 22px; border-radius:14px;
+    font-weight:600; font-size:14px; box-shadow:0 12px 30px -6px rgba(139,92,246,0.6); z-index:100;
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1), opacity .35s; display:flex; align-items:center; gap:10px;
+  }
+  .toast.show{ transform:translateX(-50%) translateY(0); opacity:1; }
+
+  footer.foot{ text-align:center; color:var(--text-muted); font-size:11.5px; margin-top:30px; }
+
+  @media (max-width:720px){
+    .hero{ grid-template-columns:1fr; text-align:center; justify-items:center; }
+    .stat-grid{ grid-template-columns:1fr 1fr; }
+    .entry-form{ grid-template-columns:1fr 1fr; }
+    .entry-form .btn-primary{ grid-column:1/-1; width:100%; }
+    table{ font-size:12px; }
+    thead th:nth-child(4), tbody td:nth-child(4){ display:none; }
+  }
+  @media (max-width:420px){
+    .stat-grid{ grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= AUTH SCREEN ================= -->
+<div id="authScreen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo"><span class="mark">🌱</span><span>Sprout</span></div>
+    <p class="auth-sub" id="authSub">Sign in to track your growth.</p>
+
+    <div class="field">
+      <label for="authEmail">Email</label>
+      <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label for="authPassword">Password</label>
+      <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="authSubmitBtn">Sign in</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-toggle">
+      <span id="authToggleText">New here?</span>
+      <button id="authToggleBtn">Create an account</button>
+    </div>
+    <p class="auth-note">Your data is private — protected by Supabase row-level security and visible only to your account.</p>
+  </div>
+</div>
+
+<!-- ================= MAIN APP ================= -->
+<div class="app hidden" id="mainApp">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">🌱</span>
+      <div class="brand-text">Sprout<small>Personal Growth Tracker</small></div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill">
+        <span class="dot" id="userInitial">?</span>
+        <span id="userEmail">—</span>
+      </div>
+      <button class="signout" id="signOutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="ring-wrap">
+      <svg width="150" height="150" viewBox="0 0 150 150">
+        <defs>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8B5CF6"/>
+            <stop offset="100%" stop-color="#FBBF24"/>
+          </linearGradient>
+        </defs>
+        <circle class="ring-bg" cx="75" cy="75" r="63"></circle>
+        <circle class="ring-fg" id="ringFg" cx="75" cy="75" r="63" stroke-dasharray="396" stroke-dashoffset="396"></circle>
+      </svg>
+      <div class="ring-center">
+        <div class="lvl-label">Level</div>
+        <div class="lvl-num" id="levelNum">1</div>
+        <div class="lvl-badge" id="levelBadge">🌱</div>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="eyebrow">Total Balance</div>
+      <div class="hero-total" id="heroTotal">$0<span class="cents">.00</span></div>
+      <span class="hero-change flat" id="heroChange">— no entries yet</span>
+      <div class="xp-track">
+        <div class="xp-bar-bg"><div class="xp-bar-fill" id="xpFill" style="width:0%"></div></div>
+        <div class="xp-caption" id="xpCaption">Add your first entry to start levelling up</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stat grid -->
+  <section class="stat-grid">
+    <div class="stat-card">
+      <div class="label">This Month</div>
+      <div class="value" id="statMonth">$0</div>
+      <div class="sub">Net change added</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Growth Rate</div>
+      <div class="value" id="statGrowth">0%</div>
+      <div class="sub">Vs. previous month</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Entries Logged</div>
+      <div class="value" id="statEntries">0</div>
+      <div class="sub">Keep the streak going</div>
+    </div>
+  </section>
+
+  <!-- Chart -->
+  <section class="section">
+    <div class="section-head">
+      <h2>Growth Over Time</h2>
+      <span class="count" id="chartRange">—</span>
+    </div>
+    <div class="chart-wrap"><canvas id="growthChart"></canvas></div>
+  </section>
+
+  <!-- Add entry -->
+  <section class="section">
+    <div class="section-head"><h2>Log an Entry</h2></div>
+    <div class="entry-form">
+      <div class="field">
+        <label>Category</label>
+        <select id="entryCategory">
+          <option value="savings">🟣 Savings</option>
+          <option value="investments">🟢 Investments</option>
+          <option value="income">🟡 Income</option>
+          <option value="other">⚪ Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Amount</label>
+        <input id="entryAmount" type="number" step="0.01" placeholder="250.00">
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input id="entryDate" type="date">
+      </div>
+      <div class="field">
+        <label>Note (optional)</label>
+        <input id="entryNote" type="text" placeholder="e.g. birthday money, paycheck">
+      </div>
+      <button class="btn btn-primary" id="addEntryBtn">+ Add Entry</button>
+    </div>
+  </section>
+
+  <!-- Goals -->
+  <section class="section">
+    <div class="section-head">
+      <h2>Goals</h2>
+      <span class="count" id="goalsCount">0 active</span>
+    </div>
+    <div class="goals-grid" id="goalsGrid">
+      <div class="add-goal-card" id="addGoalTrigger">+ New Goal</div>
+    </div>
+  </section>
+
+  <!-- Ledger -->
+  <section class="section">
+    <div class="section-head">
+      <h2>Ledger</h2>
+      <span class="count" id="ledgerCount">0 entries</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Category</th><th>Note</th><th>Amount</th><th></th></tr>
+      </thead>
+      <tbody id="ledgerBody"></tbody>
+    </table>
+    <div class="empty-state hidden" id="ledgerEmpty">
+      <span class="emoji">🌱</span>
+      Nothing logged yet — add your first entry above to start growing.
+    </div>
+  </section>
+
+  <footer class="foot">Sprout · your personal growth tracker</footer>
+</div>
+
+<!-- Goal modal -->
+<div class="modal-overlay hidden" id="goalModal">
+  <div class="modal">
+    <h3>New Goal</h3>
+    <div class="field">
+      <label>Title</label>
+      <input id="goalTitle" type="text" placeholder="e.g. Emergency Fund">
+    </div>
+    <div class="field">
+      <label>Target Amount</label>
+      <input id="goalTarget" type="number" step="0.01" placeholder="1000.00">
+    </div>
+    <div class="field">
+      <label>Icon</label>
+      <div class="emoji-picker" id="emojiPicker"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="goalCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="goalSaveBtn">Create Goal</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIGURE THESE TWO VALUES with your Supabase project details
+   Project Settings → API → Project URL / anon public key
+   ============================================================ */
+const SUPABASE_URL = 'https://hrqqqdewvvnpzmywmjpe.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhycXFxZGV3dnZucHpteXdtanBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4MjM0OTcsImV4cCI6MjA5OTM5OTQ5N30.pBGYBCDOPHdd1-bSIAAkMVgay5WBRH76qqI1PfIKf-0';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let entries = [];
+let goals = [];
+let chartInstance = null;
+let selectedEmoji = '🎯';
+const EMOJI_OPTIONS = ['🎯','🏠','✈️','🚗','🎓','💻','🛡️','🎮','💍','🏖️'];
+
+/* ---------------- Auth ---------------- */
+let authMode = 'signin';
+
+document.getElementById('authToggleBtn').addEventListener('click', () => {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  document.getElementById('authSub').textContent = authMode === 'signin' ? 'Sign in to track your growth.' : 'Create an account to start tracking.';
+  document.getElementById('authToggleText').textContent = authMode === 'signin' ? 'New here?' : 'Already have an account?';
+  document.getElementById('authToggleBtn').textContent = authMode === 'signin' ? 'Create an account' : 'Sign in';
+  document.getElementById('authError').textContent = '';
+});
+
+document.getElementById('authSubmitBtn').addEventListener('click', async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Enter an email and password.'; return; }
+
+  try {
+    if (authMode === 'signin') {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } else {
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) throw error;
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Account created — check your email if confirmation is required, then sign in.';
+      return;
+    }
+  } catch (e) {
+    errEl.style.color = 'var(--red)';
+    errEl.textContent = e.message || 'Something went wrong.';
+  }
+});
+
+document.getElementById('signOutBtn').addEventListener('click', async () => {
+  await sb.auth.signOut();
+});
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (session && session.user) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    currentUser = null;
+    showAuth();
+  }
+});
+
+function showAuth(){
+  document.getElementById('authScreen').classList.remove('hidden');
+  document.getElementById('mainApp').classList.add('hidden');
+}
+
+async function showApp(){
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  document.getElementById('userEmail').textContent = currentUser.email;
+  document.getElementById('userInitial').textContent = currentUser.email[0].toUpperCase();
+  document.getElementById('entryDate').valueAsDate = new Date();
+  await loadAll();
+}
+
+/* ---------------- Data loading ---------------- */
+async function loadAll(){
+  await Promise.all([loadEntries(), loadGoals()]);
+  render();
+}
+
+async function loadEntries(){
+  const { data, error } = await sb.from('entries').select('*').order('entry_date', { ascending: true });
+  if (error) { console.error(error); entries = []; return; }
+  entries = data || [];
+}
+
+async function loadGoals(){
+  const { data, error } = await sb.from('goals').select('*').order('created_at', { ascending: true });
+  if (error) { console.error(error); goals = []; return; }
+  goals = data || [];
+}
+
+/* ---------------- Add entry ---------------- */
+document.getElementById('addEntryBtn').addEventListener('click', async () => {
+  const category = document.getElementById('entryCategory').value;
+  const amount = parseFloat(document.getElementById('entryAmount').value);
+  const entry_date = document.getElementById('entryDate').value;
+  const note = document.getElementById('entryNote').value.trim();
+
+  if (isNaN(amount) || amount === 0) { alert('Enter a non-zero amount.'); return; }
+  if (!entry_date) { alert('Pick a date.'); return; }
+
+  const { error } = await sb.from('entries').insert({
+    user_id: currentUser.id, category, amount, entry_date, note
+  });
+  if (error) { alert(error.message); return; }
+
+  document.getElementById('entryAmount').value = '';
+  document.getElementById('entryNote').value = '';
+  const prevTotal = totalBalance();
+  await loadEntries();
+  render();
+  maybeCelebrateLevelUp(prevTotal);
+});
+
+async function deleteEntry(id){
+  if (!confirm('Delete this entry?')) return;
+  const { error } = await sb.from('entries').delete().eq('id', id);
+  if (error) { alert(error.message); return; }
+  await loadEntries();
+  render();
+}
+
+/* ---------------- Goals ---------------- */
+const goalModal = document.getElementById('goalModal');
+document.getElementById('addGoalTrigger').addEventListener('click', openGoalModal);
+document.getElementById('goalCancelBtn').addEventListener('click', closeGoalModal);
+
+function openGoalModal(){
+  document.getElementById('goalTitle').value = '';
+  document.getElementById('goalTarget').value = '';
+  selectedEmoji = '🎯';
+  const picker = document.getElementById('emojiPicker');
+  picker.innerHTML = '';
+  EMOJI_OPTIONS.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-opt' + (e === selectedEmoji ? ' selected' : '');
+    btn.textContent = e;
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      selectedEmoji = e;
+      [...picker.children].forEach(c => c.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    picker.appendChild(btn);
+  });
+  goalModal.classList.remove('hidden');
+}
+function closeGoalModal(){ goalModal.classList.add('hidden'); }
+
+document.getElementById('goalSaveBtn').addEventListener('click', async () => {
+  const title = document.getElementById('goalTitle').value.trim();
+  const target = parseFloat(document.getElementById('goalTarget').value);
+  if (!title) { alert('Give your goal a title.'); return; }
+  if (isNaN(target) || target <= 0) { alert('Enter a target amount greater than 0.'); return; }
+
+  const { error } = await sb.from('goals').insert({
+    user_id: currentUser.id, title, target_amount: target, emoji: selectedEmoji
+  });
+  if (error) { alert(error.message); return; }
+  closeGoalModal();
+  await loadGoals();
+  render();
+});
+
+async function deleteGoal(id){
+  if (!confirm('Delete this goal?')) return;
+  const { error } = await sb.from('goals').delete().eq('id', id);
+  if (error) { alert(error.message); return; }
+  await loadGoals();
+  render();
+}
+
+/* ---------------- Derived stats ---------------- */
+function totalBalance(){
+  return entries.reduce((s, e) => s + Number(e.amount), 0);
+}
+function monthKey(d){ return d.slice(0,7); }
+function thisMonthChange(){
+  const now = new Date();
+  const key = now.toISOString().slice(0,7);
+  return entries.filter(e => monthKey(e.entry_date) === key).reduce((s,e)=>s+Number(e.amount),0);
+}
+function prevMonthChange(){
+  const d = new Date(); d.setMonth(d.getMonth()-1);
+  const key = d.toISOString().slice(0,7);
+  return entries.filter(e => monthKey(e.entry_date) === key).reduce((s,e)=>s+Number(e.amount),0);
+}
+function levelFromTotal(total){
+  // Every $500 net worth of "growth" = 1 level, capped display-wise but uncapped internally
+  const lvl = Math.max(1, Math.floor(total / 500) + 1);
+  return lvl;
+}
+function levelProgress(total){
+  const lvl = levelFromTotal(total);
+  const floor = (lvl - 1) * 500;
+  const ceil = lvl * 500;
+  const pct = Math.max(0, Math.min(100, ((total - floor) / (ceil - floor)) * 100));
+  return { lvl, pct, remaining: ceil - total };
+}
+function badgeForLevel(lvl){
+  if (lvl >= 20) return '💎';
+  if (lvl >= 10) return '🥇';
+  if (lvl >= 5) return '🥈';
+  if (lvl >= 2) return '🥉';
+  return '🌱';
+}
+
+/* ---------------- Render ---------------- */
+function render(){
+  const total = totalBalance();
+  const [dollars, cents] = Math.abs(total).toFixed(2).split('.');
+  document.getElementById('heroTotal').innerHTML =
+    (total < 0 ? '-$' : '$') + Number(dollars).toLocaleString() + '<span class="cents">.' + cents + '</span>';
+
+  const mChange = thisMonthChange();
+  const pChange = prevMonthChange();
+  const changeEl = document.getElementById('heroChange');
+  if (entries.length === 0) {
+    changeEl.className = 'hero-change flat';
+    changeEl.textContent = '— no entries yet';
+  } else if (mChange > 0) {
+    changeEl.className = 'hero-change up';
+    changeEl.textContent = '▲ +$' + mChange.toLocaleString(undefined,{maximumFractionDigits:2}) + ' this month';
+  } else if (mChange < 0) {
+    changeEl.className = 'hero-change down';
+    changeEl.textContent = '▼ -$' + Math.abs(mChange).toLocaleString(undefined,{maximumFractionDigits:2}) + ' this month';
+  } else {
+    changeEl.className = 'hero-change flat';
+    changeEl.textContent = '— no change this month';
+  }
+
+  // Level ring
+  const { lvl, pct, remaining } = levelProgress(total);
+  document.getElementById('levelNum').textContent = lvl;
+  document.getElementById('levelBadge').textContent = badgeForLevel(lvl);
+  const circumference = 2 * Math.PI * 63;
+  const offset = circumference - (pct/100) * circumference;
+  document.getElementById('ringFg').style.strokeDasharray = circumference;
+  document.getElementById('ringFg').style.strokeDashoffset = offset;
+  document.getElementById('xpFill').style.width = pct.toFixed(1) + '%';
+  document.getElementById('xpCaption').textContent = total <= 0
+    ? 'Add entries to reach Level 2'
+    : '$' + remaining.toLocaleString(undefined,{maximumFractionDigits:0}) + ' to Level ' + (lvl+1);
+
+  // Stat grid
+  document.getElementById('statMonth').textContent = (mChange<0?'-':'') + '$' + Math.abs(mChange).toLocaleString(undefined,{maximumFractionDigits:2});
+  document.getElementById('statMonth').style.color = mChange > 0 ? 'var(--green)' : (mChange < 0 ? 'var(--red)' : 'var(--text-primary)');
+  let growthPct = 0;
+  if (pChange !== 0) growthPct = ((mChange - pChange) / Math.abs(pChange)) * 100;
+  else if (mChange !== 0) growthPct = 100;
+  document.getElementById('statGrowth').textContent = (growthPct>=0?'+':'') + growthPct.toFixed(1) + '%';
+  document.getElementById('statGrowth').style.color = growthPct >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('statEntries').textContent = entries.length;
+
+  renderChart();
+  renderLedger();
+  renderGoals();
+}
+
+function renderChart(){
+  const ctx = document.getElementById('growthChart');
+  const sorted = [...entries].sort((a,b) => a.entry_date.localeCompare(b.entry_date));
+  let running = 0;
+  const labels = [];
+  const data = [];
+  sorted.forEach(e => {
+    running += Number(e.amount);
+    labels.push(new Date(e.entry_date + 'T00:00:00').toLocaleDateString(undefined,{month:'short', day:'numeric'}));
+    data.push(running);
+  });
+
+  document.getElementById('chartRange').textContent = sorted.length
+    ? (labels[0] + ' → ' + labels[labels.length-1])
+    : 'No data yet';
+
+  if (chartInstance) chartInstance.destroy();
+
+  if (sorted.length === 0) return;
+
+  const gradient = ctx.getContext('2d').createLinearGradient(0,0,0,230);
+  gradient.addColorStop(0, 'rgba(139,92,246,0.45)');
+  gradient.addColorStop(1, 'rgba(139,92,246,0.02)');
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: '#A78BFA',
+        backgroundColor: gradient,
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#FBBF24',
+        pointHoverBorderColor: '#1B1333',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display:false } },
+      scales: {
+        x: { grid: { display:false }, ticks: { color:'#6B6289', font:{ family:'Inter', size:11 } } },
+        y: { grid: { color:'rgba(46,35,80,0.5)' }, ticks: { color:'#6B6289', font:{ family:'IBM Plex Mono', size:10 },
+              callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+const CAT_LABELS = { savings:['🟣 Savings','cat-savings'], investments:['🟢 Investments','cat-investments'], income:['🟡 Income','cat-income'], other:['⚪ Other','cat-other'] };
+
+function renderLedger(){
+  const body = document.getElementById('ledgerBody');
+  const sorted = [...entries].sort((a,b) => b.entry_date.localeCompare(a.entry_date));
+  body.innerHTML = '';
+  document.getElementById('ledgerCount').textContent = entries.length + ' entries';
+  document.getElementById('ledgerEmpty').classList.toggle('hidden', sorted.length > 0);
+
+  sorted.forEach(e => {
+    const [label, cls] = CAT_LABELS[e.category] || CAT_LABELS.other;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(e.entry_date + 'T00:00:00').toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'})}</td>
+      <td><span class="cat-chip ${cls}">${label}</span></td>
+      <td style="color:var(--text-secondary)">${e.note ? escapeHtml(e.note) : '—'}</td>
+      <td class="amt ${e.amount<0?'neg':'pos'}">${e.amount<0?'-':'+'}$${Math.abs(e.amount).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+      <td><button class="row-del" data-id="${e.id}">✕</button></td>
+    `;
+    body.appendChild(tr);
+  });
+
+  body.querySelectorAll('.row-del').forEach(btn => {
+    btn.addEventListener('click', () => deleteEntry(btn.dataset.id));
+  });
+}
+
+function renderGoals(){
+  const grid = document.getElementById('goalsGrid');
+  const trigger = document.getElementById('addGoalTrigger');
+  grid.querySelectorAll('.goal-card').forEach(c => c.remove());
+  document.getElementById('goalsCount').textContent = goals.length + (goals.length === 1 ? ' active' : ' active');
+
+  const total = totalBalance();
+
+  goals.forEach(g => {
+    const pct = Math.min(100, (total / Number(g.target_amount)) * 100);
+    const complete = pct >= 100;
+    const card = document.createElement('div');
+    card.className = 'goal-card' + (complete ? ' complete' : '');
+    card.innerHTML = `
+      <button class="goal-del" data-id="${g.id}">✕</button>
+      <div class="goal-top"><span class="goal-emoji">${g.emoji || '🎯'}</span>${complete ? '<span style="font-size:11px;color:var(--gold);font-weight:700;">COMPLETE 🎉</span>' : ''}</div>
+      <div class="goal-title">${escapeHtml(g.title)}</div>
+      <div class="goal-amounts">$${Math.max(0,total).toLocaleString(undefined,{maximumFractionDigits:0})} / $${Number(g.target_amount).toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+      <div class="goal-bar-bg"><div class="goal-bar-fill ${complete?'done':''}" style="width:${Math.max(0,pct)}%"></div></div>
+      <div class="goal-pct">${Math.max(0,pct).toFixed(0)}% funded</div>
+    `;
+    grid.insertBefore(card, trigger);
+  });
+
+  grid.querySelectorAll('.goal-del').forEach(btn => {
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); deleteGoal(btn.dataset.id); });
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ---------------- Level-up celebration ---------------- */
+function maybeCelebrateLevelUp(prevTotal){
+  const newTotal = totalBalance();
+  const before = levelFromTotal(prevTotal);
+  const after = levelFromTotal(newTotal);
+  if (after > before) {
+    showToast(`🎉 Level up! You reached Level ${after} ${badgeForLevel(after)}`);
+  } else {
+    showToast('✅ Entry added');
+  }
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------------- Init ---------------- */
+(async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && session.user) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    showAuth();
+  }
+})();
+</script>
+</body>
+</html>
