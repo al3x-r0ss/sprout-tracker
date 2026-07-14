@@ -344,6 +344,30 @@
 
   footer.foot{ text-align:center; color:var(--text-muted); font-size:11.5px; margin-top:30px; }
 
+  /* Friends */
+  .friend-add-row{ display:flex; gap:10px; margin-bottom:10px; }
+  .friend-add-row input{
+    flex:1; min-width:0; box-sizing:border-box; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid var(--card-border);
+    background:var(--bg-elevated); color:var(--text-primary); font-size:13.5px; outline:none;
+  }
+  .friend-add-row input:focus{ border-color:var(--primary); }
+  .friend-add-row .btn-primary{ width:auto; padding:10px 20px; white-space:nowrap; }
+  .friend-hint{ font-size:11.5px; color:var(--text-muted); margin-bottom:6px; line-height:1.5; }
+  .subhead{ font-size:11.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin:18px 0 10px; }
+  .friend-list{ display:flex; flex-direction:column; gap:10px; }
+  .friend-card{ display:flex; align-items:center; gap:12px; background:var(--bg-elevated); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:12px 14px; }
+  .friend-avatar{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0; background:linear-gradient(135deg,var(--primary),var(--gold));
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:#fff;
+  }
+  .friend-info{ flex:1; min-width:0; }
+  .friend-email{ font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .friend-meta{ font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .friend-action-btn{ background:none; border:1px solid var(--card-border); border-radius:8px; padding:6px 11px; font-size:12px; font-weight:600; color:var(--text-secondary); flex-shrink:0; white-space:nowrap; transition:border-color .15s, color .15s; }
+  .friend-action-btn:hover{ border-color:var(--card-border-hover); }
+  .friend-action-btn.accept{ border-color:var(--green); color:var(--green); }
+  .friend-action-btn.decline, .friend-action-btn.remove{ border-color:var(--red); color:var(--red); }
+
   @media (max-width:720px){
     .hero{ grid-template-columns:1fr; text-align:center; justify-items:center; }
     .stat-grid{ grid-template-columns:1fr 1fr; }
@@ -356,6 +380,8 @@
   @media (max-width:420px){
     .stat-grid{ grid-template-columns:1fr 1fr; }
     .entry-row-top{ grid-template-columns:minmax(0,1fr); }
+    .friend-add-row{ flex-direction:column; }
+    .friend-add-row .btn-primary{ width:100%; }
   }
   @media (prefers-reduced-motion: reduce){
     *{ transition:none !important; animation:none !important; }
@@ -548,6 +574,36 @@
     </div>
     <div class="goals-grid" id="goalsGrid">
       <div class="add-goal-card" id="addGoalTrigger">+ New Goal</div>
+    </div>
+  </section>
+
+  <!-- Friends -->
+  <section class="section">
+    <div class="section-head">
+      <h2>Friends</h2>
+      <span class="count" id="friendsCount">0 friends</span>
+    </div>
+    <div class="friend-add-row">
+      <input id="friendEmailInput" type="email" placeholder="friend@example.com">
+      <button class="btn btn-primary" id="addFriendBtn">+ Add Friend</button>
+    </div>
+    <p class="friend-hint">Friends only ever see your level, badge, streak, and % of goals completed — never your balance or entries.</p>
+
+    <div id="friendRequestsWrap" class="hidden">
+      <div class="subhead">Requests</div>
+      <div id="friendRequestsList" class="friend-list"></div>
+    </div>
+
+    <div id="friendsSentWrap" class="hidden">
+      <div class="subhead">Sent Requests</div>
+      <div id="friendsSentList" class="friend-list"></div>
+    </div>
+
+    <div class="subhead">Leaderboard</div>
+    <div id="friendsList" class="friend-list"></div>
+    <div class="empty-state hidden" id="friendsEmpty">
+      <span class="emoji">🤝</span>
+      No friends yet — add one by email above to start a leaderboard.
     </div>
   </section>
 
@@ -749,7 +805,10 @@ async function showApp(){
 /* ---------------- Data loading ---------------- */
 async function loadAll(){
   await Promise.all([loadEntries(), loadGoals()]);
+  await upsertMyPublicStats();
+  await loadFriendsData();
   render();
+  renderFriends();
 }
 
 async function loadEntries(){
@@ -793,6 +852,7 @@ document.getElementById('addEntryBtn').addEventListener('click', async () => {
   document.getElementById('entryNote').value = '';
   const prevTotal = totalBalance();
   await loadEntries();
+  await upsertMyPublicStats();
   render();
   maybeCelebrateLevelUp(prevTotal);
 });
@@ -802,6 +862,7 @@ async function deleteEntry(id){
   const { error } = await sb.from('entries').delete().eq('id', id);
   if (error) { alert(error.message); return; }
   await loadEntries();
+  await upsertMyPublicStats();
   render();
 }
 
@@ -844,6 +905,7 @@ document.getElementById('goalSaveBtn').addEventListener('click', async () => {
   if (error) { alert(error.message); return; }
   closeGoalModal();
   await loadGoals();
+  await upsertMyPublicStats();
   render();
 });
 
@@ -852,6 +914,7 @@ async function deleteGoal(id){
   const { error } = await sb.from('goals').delete().eq('id', id);
   if (error) { alert(error.message); return; }
   await loadGoals();
+  await upsertMyPublicStats();
   render();
 }
 
@@ -1191,6 +1254,150 @@ function renderProfileStats(){
   document.getElementById('profileStatsGrid').innerHTML = stats.map(s => `
     <div class="profile-stat"><div class="label">${s.label}</div><div class="value">${s.value}</div></div>
   `).join('');
+}
+
+/* ---------------- Friends (gamified-only visibility) ---------------- */
+let friendships = [];
+let profilesCache = {};
+let statsCache = {};
+
+async function upsertMyPublicStats(){
+  const total = totalBalance();
+  const { lvl } = levelProgress(total);
+  const goals_total = goals.length;
+  const goals_completed = goals.filter(g => total >= Number(g.target_amount)).length;
+  await sb.from('public_stats').upsert({
+    user_id: currentUser.id,
+    level: lvl,
+    badge: badgeForLevel(lvl),
+    current_streak: computeStreak(),
+    longest_streak: computeLongestStreak(),
+    goals_total,
+    goals_completed,
+    total_entries: entries.length,
+    updated_at: new Date().toISOString()
+  });
+}
+
+async function loadFriendsData(){
+  const { data, error } = await sb.from('friendships')
+    .select('*')
+    .or(`requester_id.eq.${currentUser.id},addressee_id.eq.${currentUser.id}`);
+  if (error) { console.error(error); friendships = []; return; }
+  friendships = data || [];
+
+  const otherIds = [...new Set(friendships.map(f => f.requester_id === currentUser.id ? f.addressee_id : f.requester_id))];
+  profilesCache = {};
+  statsCache = {};
+  if (otherIds.length === 0) return;
+
+  const { data: profs } = await sb.from('profiles').select('id,email').in('id', otherIds);
+  (profs || []).forEach(p => profilesCache[p.id] = p);
+
+  const { data: stats } = await sb.from('public_stats').select('*').in('user_id', otherIds);
+  (stats || []).forEach(s => statsCache[s.user_id] = s);
+}
+
+document.getElementById('addFriendBtn').addEventListener('click', async () => {
+  const email = document.getElementById('friendEmailInput').value.trim().toLowerCase();
+  if (!email) return;
+  if (email === currentUser.email.toLowerCase()) { alert("That's your own email!"); return; }
+
+  const { data: foundId, error: lookupErr } = await sb.rpc('find_user_id_by_email', { lookup_email: email });
+  if (lookupErr || !foundId) { alert('No Sprout account found with that email.'); return; }
+
+  const { error } = await sb.from('friendships').insert({
+    requester_id: currentUser.id, addressee_id: foundId, status: 'pending'
+  });
+  if (error) {
+    alert(error.message.includes('duplicate') ? "Already friends, or a request is already pending." : error.message);
+    return;
+  }
+  document.getElementById('friendEmailInput').value = '';
+  await loadFriendsData();
+  renderFriends();
+  showToast('🤝 Friend request sent');
+});
+
+async function respondRequest(id, status){
+  const { error } = await sb.from('friendships').update({ status }).eq('id', id);
+  if (error) { alert(error.message); return; }
+  await loadFriendsData();
+  renderFriends();
+  if (status === 'accepted') showToast('🎉 You are now friends!');
+}
+async function removeFriendship(id){
+  if (!confirm('Remove this friend / cancel this request?')) return;
+  const { error } = await sb.from('friendships').delete().eq('id', id);
+  if (error) { alert(error.message); return; }
+  await loadFriendsData();
+  renderFriends();
+}
+
+function friendMetaLine(s){
+  if (!s) return 'No stats yet';
+  const pct = s.goals_total > 0 ? Math.round((s.goals_completed / s.goals_total) * 100) : null;
+  return `Lvl ${s.level} ${s.badge} · 🔥 ${s.current_streak}d streak` + (pct !== null ? ` · ${pct}% goals` : '');
+}
+
+function renderFriends(){
+  const incoming = friendships.filter(f => f.status === 'pending' && f.addressee_id === currentUser.id);
+  const outgoing = friendships.filter(f => f.status === 'pending' && f.requester_id === currentUser.id);
+  const accepted = friendships.filter(f => f.status === 'accepted');
+
+  document.getElementById('friendsCount').textContent = accepted.length + (accepted.length === 1 ? ' friend' : ' friends');
+
+  const reqWrap = document.getElementById('friendRequestsWrap');
+  reqWrap.classList.toggle('hidden', incoming.length === 0);
+  document.getElementById('friendRequestsList').innerHTML = incoming.map(f => {
+    const p = profilesCache[f.requester_id];
+    const email = p ? p.email : 'Unknown';
+    return `
+      <div class="friend-card">
+        <div class="friend-avatar">${email[0].toUpperCase()}</div>
+        <div class="friend-info"><div class="friend-email">${escapeHtml(email)}</div><div class="friend-meta">wants to be friends</div></div>
+        <button class="friend-action-btn accept" data-id="${f.id}" data-action="accept">Accept</button>
+        <button class="friend-action-btn decline" data-id="${f.id}" data-action="decline">Decline</button>
+      </div>`;
+  }).join('');
+  document.querySelectorAll('#friendRequestsList [data-action="accept"]').forEach(b => b.addEventListener('click', () => respondRequest(b.dataset.id, 'accepted')));
+  document.querySelectorAll('#friendRequestsList [data-action="decline"]').forEach(b => b.addEventListener('click', () => respondRequest(b.dataset.id, 'declined')));
+
+  const sentWrap = document.getElementById('friendsSentWrap');
+  sentWrap.classList.toggle('hidden', outgoing.length === 0);
+  document.getElementById('friendsSentList').innerHTML = outgoing.map(f => {
+    const p = profilesCache[f.addressee_id];
+    const email = p ? p.email : 'Unknown';
+    return `
+      <div class="friend-card">
+        <div class="friend-avatar">${email[0].toUpperCase()}</div>
+        <div class="friend-info"><div class="friend-email">${escapeHtml(email)}</div><div class="friend-meta">request pending</div></div>
+        <button class="friend-action-btn remove" data-id="${f.id}" data-action="cancel">Cancel</button>
+      </div>`;
+  }).join('');
+  document.querySelectorAll('#friendsSentList [data-action="cancel"]').forEach(b => b.addEventListener('click', () => removeFriendship(b.dataset.id)));
+
+  const sortedAccepted = [...accepted].sort((a,b) => {
+    const idA = a.requester_id === currentUser.id ? a.addressee_id : a.requester_id;
+    const idB = b.requester_id === currentUser.id ? b.addressee_id : b.requester_id;
+    return (statsCache[idB]?.level || 0) - (statsCache[idA]?.level || 0);
+  });
+
+  document.getElementById('friendsList').innerHTML = sortedAccepted.map(f => {
+    const otherId = f.requester_id === currentUser.id ? f.addressee_id : f.requester_id;
+    const p = profilesCache[otherId];
+    const s = statsCache[otherId];
+    const email = p ? p.email : 'Unknown';
+    return `
+      <div class="friend-card">
+        <div class="friend-avatar">${email[0].toUpperCase()}</div>
+        <div class="friend-info"><div class="friend-email">${escapeHtml(email)}</div><div class="friend-meta">${friendMetaLine(s)}</div></div>
+        <button class="friend-action-btn remove" data-id="${f.id}" data-action="remove">Remove</button>
+      </div>`;
+  }).join('');
+  document.querySelectorAll('#friendsList [data-action="remove"]').forEach(b => b.addEventListener('click', () => removeFriendship(b.dataset.id)));
+
+  document.getElementById('friendsEmpty').classList.toggle('hidden', accepted.length > 0);
 }
 
 /* ---------------- Init ---------------- */

@@ -1,9 +1,16 @@
 # 🌱 Sprout — Personal Growth Tracker
 
-A dark, purple-themed personal finance tracker. Log savings/investment/income
-entries, watch a growth chart build over time, level up (with badges) as your
-balance grows, and set goals with progress bars. Single static site — no
-build step — backed by Supabase for storage and auth.
+A purple-themed personal finance tracker with a light mode (default) and dark
+mode toggle. Log savings/investment/income entries, watch a growth chart
+build over time, watch a little plant grow in its pot as your balance
+climbs, keep a daily logging streak going, and set goals with progress bars.
+Single static site — no build step — backed by Supabase for storage and auth.
+
+**Files that must all be uploaded together** (they reference each other):
+`index.html`, `manifest.json`, `favicon.ico`, `logo-192.png`, `logo-512.png`,
+`apple-touch-icon.png`, `supabase-schema.sql`, `README.md`, `.gitignore`.
+The logo/icon files are what make the app's icon show up correctly when
+someone bookmarks it or adds it to a phone home screen.
 
 ---
 
@@ -89,6 +96,26 @@ check your inbox for the confirmation link first.
   `badgeForLevel()` in `index.html` to change thresholds or emoji).
 - **Goals** track progress against your *total* balance, not a separate pot —
   simple to reason about for a personal tracker with one running balance.
+
+## Friends & leaderboard
+
+You can add friends by email and see a leaderboard of Level, badge, and
+streak — but **never** anyone's dollar amounts, entries, or goal names.
+Only goal *completion percentage* is shared, never targets or balances.
+
+**To enable this, run the SQL again:** open `supabase-schema.sql`, copy the
+whole file (it now includes the new `profiles`, `friendships`, and
+`public_stats` tables, a signup trigger, and a locked-down email lookup),
+and run it in your Supabase SQL Editor — it's safe to re-run even though
+you ran an earlier version before, since every statement uses
+`if not exists` / `drop policy if exists` guards.
+
+**On privacy:** emails are not browsable. Nobody can list or search other
+users generally — adding a friend requires typing their *exact* email,
+which is checked through a narrow database function that only ever
+returns a yes/no + id, never a list. Once you send or receive a request,
+that one other person's email becomes visible to you (needed to show it in
+the UI); if you remove the friendship, that visibility goes away again.
 
 ## Customizing
 
