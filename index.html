@@ -4,12 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sprout — Growth Tracker</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8B5CF6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-  :root{
+  :root, [data-theme="light"]{
+    --bg:#F7F5FC;
+    --bg-elevated:#EFEAFB;
+    --card:#FFFFFF;
+    --card-border:#E3DBF5;
+    --card-border-hover:#C9BAF0;
+    --primary:#7C3AED;
+    --primary-bright:#8B5CF6;
+    --primary-glow:#A78BFA;
+    --primary-rgb:124,58,237;
+    --gold:#D97706;
+    --green:#059669;
+    --red:#DC2626;
+    --text-primary:#1E1533;
+    --text-secondary:#665D85;
+    --text-muted:#9990B3;
+    --chart-grid:rgba(124,58,237,0.10);
+    --bg-glow-1:rgba(139,92,246,0.09);
+    --bg-glow-2:rgba(167,139,250,0.12);
+    --radius:16px;
+    --radius-sm:10px;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  [data-theme="dark"]{
     --bg:#0F0A1F;
     --bg-elevated:#150E29;
     --card:#1B1333;
@@ -18,28 +48,28 @@
     --primary:#8B5CF6;
     --primary-bright:#A78BFA;
     --primary-glow:#C4B5FD;
+    --primary-rgb:139,92,246;
     --gold:#FBBF24;
     --green:#34D399;
     --red:#F87171;
     --text-primary:#F5F3FF;
     --text-secondary:#A9A0C7;
     --text-muted:#6B6289;
-    --radius:16px;
-    --radius-sm:10px;
-    --font-display:'Space Grotesk', sans-serif;
-    --font-body:'Inter', sans-serif;
-    --font-mono:'IBM Plex Mono', monospace;
+    --chart-grid:rgba(46,35,80,0.5);
+    --bg-glow-1:rgba(139,92,246,0.16);
+    --bg-glow-2:rgba(196,181,253,0.10);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:
-      radial-gradient(1200px 600px at 15% -10%, rgba(139,92,246,0.16), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(196,181,253,0.10), transparent 55%),
+      radial-gradient(1200px 600px at 15% -10%, var(--bg-glow-1), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, var(--bg-glow-2), transparent 55%),
       var(--bg);
     color:var(--text-primary);
     font-family:var(--font-body);
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
+    transition:background-color .3s ease, color .3s ease;
   }
   ::selection{ background:var(--primary); color:#fff; }
   a{color:inherit;}
@@ -49,6 +79,7 @@
   /* ---------- Scaffolding ---------- */
   .app{ max-width:1100px; margin:0 auto; padding:28px 20px 80px; }
   .hidden{ display:none !important; }
+  .mark-img{ width:26px; height:26px; border-radius:7px; display:block; box-shadow:0 2px 8px -2px rgba(124,58,237,0.5); }
 
   /* ---------- Auth screen ---------- */
   .auth-wrap{
@@ -57,13 +88,14 @@
   .auth-card{
     width:100%; max-width:380px; background:var(--card); border:1px solid var(--card-border);
     border-radius:var(--radius); padding:36px 32px; position:relative; overflow:hidden;
+    transition:background-color .3s ease, border-color .3s ease;
   }
   .auth-card::before{
     content:''; position:absolute; top:-60px; right:-60px; width:180px; height:180px;
-    background:radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%); pointer-events:none;
+    background:radial-gradient(circle, rgba(139,92,246,0.30), transparent 70%); pointer-events:none;
   }
   .auth-logo{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
-  .auth-logo .mark{ font-size:26px; }
+  .auth-logo .mark-img{ width:32px; height:32px; border-radius:9px; }
   .auth-logo span{ font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:-0.02em; }
   .auth-sub{ color:var(--text-secondary); font-size:13.5px; margin-bottom:26px; }
   .field{ margin-bottom:14px; }
@@ -78,8 +110,8 @@
     width:100%; padding:12px 16px; border-radius:var(--radius-sm); border:none; font-weight:600; font-size:14px;
     transition:transform .12s, box-shadow .12s, opacity .12s;
   }
-  .btn-primary{ background:linear-gradient(135deg, var(--primary), #7C3AED); color:#fff; box-shadow:0 6px 20px -6px rgba(139,92,246,0.6); }
-  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 10px 26px -6px rgba(139,92,246,0.75); }
+  .btn-primary{ background:linear-gradient(135deg, var(--primary), var(--primary-glow)); color:#fff; box-shadow:0 6px 20px -6px rgba(124,58,237,0.55); }
+  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 10px 26px -6px rgba(124,58,237,0.7); }
   .btn-primary:active{ transform:translateY(0); }
   .btn-ghost{ background:transparent; color:var(--text-secondary); border:1px solid var(--card-border); }
   .btn-ghost:hover{ border-color:var(--card-border-hover); color:var(--text-primary); }
@@ -93,56 +125,79 @@
     display:flex; align-items:center; justify-content:space-between; margin-bottom:30px;
   }
   .brand{ display:flex; align-items:center; gap:10px; }
-  .brand .mark{ font-size:24px; }
   .brand-text{ font-family:var(--font-display); font-weight:700; font-size:19px; letter-spacing:-0.02em; }
   .brand-text small{ display:block; font-family:var(--font-body); font-weight:500; font-size:11px; color:var(--text-muted); }
-  .topbar-right{ display:flex; align-items:center; gap:14px; }
+  .topbar-right{ display:flex; align-items:center; gap:10px; }
   .user-pill{
     display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--card-border);
     padding:7px 12px 7px 7px; border-radius:999px; font-size:12.5px; color:var(--text-secondary);
+    transition:background-color .3s ease, border-color .3s ease;
   }
-  .user-pill .dot{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#1B1333; }
+  .user-pill .dot{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#fff; }
   .signout{ background:none; border:none; color:var(--text-muted); font-size:12.5px; }
   .signout:hover{ color:var(--red); }
 
-  /* ---------- Hero: Growth Ring ---------- */
+  .icon-btn{
+    width:36px; height:36px; border-radius:50%; border:1px solid var(--card-border); background:var(--card);
+    display:flex; align-items:center; justify-content:center; font-size:16px; transition:border-color .15s, transform .15s;
+  }
+  .icon-btn:hover{ border-color:var(--card-border-hover); transform:translateY(-1px); }
+  .settings-wrap{ position:relative; }
+  .settings-panel{
+    position:absolute; top:44px; right:0; width:190px; background:var(--card); border:1px solid var(--card-border);
+    border-radius:var(--radius-sm); padding:14px; box-shadow:0 16px 34px -10px rgba(30,21,51,0.25); z-index:40;
+  }
+  .settings-title{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:700; margin-bottom:10px; }
+  .theme-toggle{ display:flex; gap:6px; }
+  .theme-opt{
+    flex:1; padding:8px 6px; border-radius:8px; border:1px solid var(--card-border); background:var(--bg-elevated);
+    color:var(--text-secondary); font-size:12.5px; font-weight:600; transition:border-color .15s, background .15s, color .15s;
+  }
+  .theme-opt.active{ border-color:var(--primary); background:rgba(124,58,237,0.12); color:var(--primary); }
+
+  /* ---------- Hero: growing plant ---------- */
   .hero{
     display:grid; grid-template-columns:auto 1fr; gap:36px; align-items:center;
     background:linear-gradient(160deg, var(--card), var(--bg-elevated));
     border:1px solid var(--card-border); border-radius:20px; padding:30px 34px; margin-bottom:22px;
-    position:relative; overflow:hidden;
+    position:relative; overflow:hidden; transition:background-color .3s ease, border-color .3s ease;
   }
   .hero::after{
     content:''; position:absolute; bottom:-100px; left:40%; width:260px; height:260px;
-    background:radial-gradient(circle, rgba(139,92,246,0.20), transparent 70%); pointer-events:none;
+    background:radial-gradient(circle, rgba(124,58,237,0.16), transparent 70%); pointer-events:none;
   }
-  .ring-wrap{ position:relative; width:150px; height:150px; flex-shrink:0; }
-  .ring-wrap svg{ transform:rotate(-90deg); }
-  .ring-bg{ fill:none; stroke:var(--bg-elevated); stroke-width:11; }
-  .ring-fg{ fill:none; stroke:url(#ringGrad); stroke-width:11; stroke-linecap:round; transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1); }
-  .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .ring-center .lvl-label{ font-size:10.5px; color:var(--text-muted); font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
-  .ring-center .lvl-num{ font-family:var(--font-display); font-size:30px; font-weight:700; color:var(--gold); line-height:1.1; }
-  .ring-center .lvl-badge{ font-size:18px; margin-top:2px; }
+  .plant-wrap{ position:relative; width:170px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; }
+  .plant-wrap svg{ overflow:visible; }
+  #plantStem{ transition:stroke-dashoffset 1.1s cubic-bezier(.4,0,.2,1); }
+  .leaf-pair, #plantBud{
+    opacity:0; transform:scale(.4); transform-box:fill-box; transform-origin:center;
+    transition:opacity .6s ease, transform .6s cubic-bezier(.34,1.56,.64,1);
+  }
+  .leaf-pair.show, #plantBud.show{ opacity:1; transform:scale(1); }
+  .plant-caption{ text-align:center; margin-top:2px; }
+  .plant-caption .lvl-label{ font-size:10.5px; color:var(--text-muted); font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
+  .plant-caption .lvl-line{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:2px; }
+  .plant-caption .lvl-num{ font-family:var(--font-display); font-size:24px; font-weight:700; color:var(--gold); }
+  .plant-caption .lvl-badge{ font-size:18px; }
 
   .hero-stats{ position:relative; z-index:1; }
   .hero-stats .eyebrow{ font-size:12px; color:var(--text-secondary); font-weight:600; letter-spacing:.03em; margin-bottom:4px; }
   .hero-total{ font-family:var(--font-display); font-size:44px; font-weight:700; letter-spacing:-0.02em; }
   .hero-total .cents{ font-size:24px; color:var(--text-secondary); }
   .hero-change{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:13.5px; font-weight:600; padding:5px 11px; border-radius:999px; }
-  .hero-change.up{ color:var(--green); background:rgba(52,211,153,0.12); }
-  .hero-change.down{ color:var(--red); background:rgba(248,113,113,0.12); }
-  .hero-change.flat{ color:var(--text-secondary); background:rgba(169,160,199,0.1); }
+  .hero-change.up{ color:var(--green); background:rgba(5,150,105,0.12); }
+  .hero-change.down{ color:var(--red); background:rgba(220,38,38,0.10); }
+  .hero-change.flat{ color:var(--text-secondary); background:rgba(153,144,179,0.12); }
   .xp-track{ margin-top:16px; max-width:340px; }
   .xp-bar-bg{ height:8px; background:var(--bg-elevated); border-radius:999px; overflow:hidden; border:1px solid var(--card-border); }
   .xp-bar-fill{ height:100%; background:linear-gradient(90deg, var(--primary), var(--gold)); border-radius:999px; transition:width 1s cubic-bezier(.4,0,.2,1); }
   .xp-caption{ font-size:11.5px; color:var(--text-muted); margin-top:6px; }
 
   /* ---------- Stat grid ---------- */
-  .stat-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:22px; }
+  .stat-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:22px; }
   .stat-card{
     background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius); padding:18px 20px;
-    transition:border-color .15s, transform .15s;
+    transition:border-color .15s, transform .15s, background-color .3s ease;
   }
   .stat-card:hover{ border-color:var(--card-border-hover); transform:translateY(-2px); }
   .stat-card .label{ font-size:12px; color:var(--text-secondary); font-weight:600; margin-bottom:8px; }
@@ -152,7 +207,7 @@
   /* ---------- Section shells ---------- */
   .section{
     background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
-    padding:24px 24px 26px; margin-bottom:20px;
+    padding:24px 24px 26px; margin-bottom:20px; transition:background-color .3s ease, border-color .3s ease;
   }
   .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
   .section-head h2{ font-family:var(--font-display); font-size:16.5px; font-weight:600; }
@@ -162,14 +217,23 @@
   .chart-wrap{ height:230px; }
 
   /* Add entry form */
-  .entry-form{ display:grid; grid-template-columns:1.1fr 1fr 1fr 1.4fr auto; gap:10px; align-items:end; }
+  .entry-row{ display:grid; gap:10px; }
+  .entry-row-top{ grid-template-columns:repeat(3, 1fr); margin-bottom:10px; }
+  .entry-row-bottom{ grid-template-columns:1fr auto; align-items:end; }
   .entry-form .field{ margin-bottom:0; }
   .entry-form select, .entry-form input{
     width:100%; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid var(--card-border);
     background:var(--bg-elevated); color:var(--text-primary); font-size:13.5px; outline:none;
   }
   .entry-form select:focus, .entry-form input:focus{ border-color:var(--primary); }
-  .entry-form .btn-primary{ padding:10px 18px; white-space:nowrap; width:auto; }
+  .entry-form .btn-primary{ padding:10px 22px; white-space:nowrap; width:auto; }
+  .quick-amounts{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; align-items:center; }
+  .quick-amounts .qa-label{ font-size:11.5px; color:var(--text-muted); margin-right:2px; }
+  .chip-btn{
+    padding:6px 13px; border-radius:999px; border:1px solid var(--card-border); background:var(--bg-elevated);
+    color:var(--text-secondary); font-size:12.5px; font-weight:600; transition:border-color .15s, color .15s;
+  }
+  .chip-btn:hover{ border-color:var(--primary); color:var(--primary); }
 
   /* Ledger table */
   table{ width:100%; border-collapse:collapse; margin-top:16px; }
@@ -177,19 +241,19 @@
     text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
     font-weight:600; padding:0 10px 10px; border-bottom:1px solid var(--card-border);
   }
-  tbody td{ padding:12px 10px; font-size:13.5px; border-bottom:1px solid rgba(46,35,80,0.5); }
+  tbody td{ padding:12px 10px; font-size:13.5px; border-bottom:1px solid var(--card-border); }
   tbody tr:last-child td{ border-bottom:none; }
-  tbody tr:hover{ background:rgba(139,92,246,0.05); }
+  tbody tr:hover{ background:rgba(124,58,237,0.05); }
   .cat-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-  .cat-savings{ background:rgba(139,92,246,0.15); color:var(--primary-glow); }
-  .cat-investments{ background:rgba(52,211,153,0.13); color:var(--green); }
-  .cat-income{ background:rgba(251,191,36,0.13); color:var(--gold); }
-  .cat-other{ background:rgba(169,160,199,0.12); color:var(--text-secondary); }
+  .cat-savings{ background:rgba(124,58,237,0.13); color:var(--primary); }
+  .cat-investments{ background:rgba(5,150,105,0.12); color:var(--green); }
+  .cat-income{ background:rgba(217,119,6,0.13); color:var(--gold); }
+  .cat-other{ background:rgba(153,144,179,0.15); color:var(--text-secondary); }
   .amt{ font-family:var(--font-mono); font-weight:600; }
   .amt.neg{ color:var(--red); }
   .amt.pos{ color:var(--green); }
   .row-del{ background:none; border:none; color:var(--text-muted); font-size:15px; padding:4px 8px; border-radius:6px; }
-  .row-del:hover{ color:var(--red); background:rgba(248,113,113,0.1); }
+  .row-del:hover{ color:var(--red); background:rgba(220,38,38,0.1); }
   .empty-state{ text-align:center; padding:36px 10px; color:var(--text-muted); font-size:13.5px; }
   .empty-state .emoji{ font-size:30px; margin-bottom:8px; display:block; }
 
@@ -216,11 +280,11 @@
     justify-content:center; min-height:110px; cursor:pointer; color:var(--text-muted); font-size:13px; font-weight:600;
     transition:border-color .15s, color .15s;
   }
-  .add-goal-card:hover{ border-color:var(--primary); color:var(--primary-bright); }
+  .add-goal-card:hover{ border-color:var(--primary); color:var(--primary); }
 
   /* Modal */
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(6,3,15,0.7); backdrop-filter:blur(3px);
+    position:fixed; inset:0; background:rgba(15,10,31,0.55); backdrop-filter:blur(3px);
     display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;
   }
   .modal{
@@ -232,13 +296,13 @@
   .modal-actions .btn{ flex:1; }
   .emoji-picker{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   .emoji-opt{ width:36px; height:36px; border-radius:8px; border:1px solid var(--card-border); background:var(--bg-elevated); font-size:16px; display:flex; align-items:center; justify-content:center; }
-  .emoji-opt.selected{ border-color:var(--primary); background:rgba(139,92,246,0.15); }
+  .emoji-opt.selected{ border-color:var(--primary); background:rgba(124,58,237,0.15); }
 
   /* Toast (milestone) */
   .toast{
     position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
-    background:linear-gradient(135deg,var(--primary),#7C3AED); color:#fff; padding:14px 22px; border-radius:14px;
-    font-weight:600; font-size:14px; box-shadow:0 12px 30px -6px rgba(139,92,246,0.6); z-index:100;
+    background:linear-gradient(135deg,var(--primary),var(--primary-glow)); color:#fff; padding:14px 22px; border-radius:14px;
+    font-weight:600; font-size:14px; box-shadow:0 12px 30px -6px rgba(124,58,237,0.55); z-index:100;
     transition:transform .35s cubic-bezier(.34,1.56,.64,1), opacity .35s; display:flex; align-items:center; gap:10px;
   }
   .toast.show{ transform:translateX(-50%) translateY(0); opacity:1; }
@@ -248,13 +312,15 @@
   @media (max-width:720px){
     .hero{ grid-template-columns:1fr; text-align:center; justify-items:center; }
     .stat-grid{ grid-template-columns:1fr 1fr; }
-    .entry-form{ grid-template-columns:1fr 1fr; }
-    .entry-form .btn-primary{ grid-column:1/-1; width:100%; }
+    .entry-row-top{ grid-template-columns:1fr 1fr; }
+    .entry-row-bottom{ grid-template-columns:1fr; }
+    .entry-form .btn-primary{ width:100%; }
     table{ font-size:12px; }
     thead th:nth-child(4), tbody td:nth-child(4){ display:none; }
   }
   @media (max-width:420px){
-    .stat-grid{ grid-template-columns:1fr; }
+    .stat-grid{ grid-template-columns:1fr 1fr; }
+    .entry-row-top{ grid-template-columns:1fr; }
   }
   @media (prefers-reduced-motion: reduce){
     *{ transition:none !important; animation:none !important; }
@@ -266,7 +332,7 @@
 <!-- ================= AUTH SCREEN ================= -->
 <div id="authScreen" class="auth-wrap">
   <div class="auth-card">
-    <div class="auth-logo"><span class="mark">🌱</span><span>Sprout</span></div>
+    <div class="auth-logo"><img src="logo-192.png" alt="Sprout" class="mark-img"><span>Sprout</span></div>
     <p class="auth-sub" id="authSub">Sign in to track your growth.</p>
 
     <div class="field">
@@ -291,10 +357,20 @@
 <div class="app hidden" id="mainApp">
   <header class="topbar">
     <div class="brand">
-      <span class="mark">🌱</span>
+      <img src="logo-192.png" alt="Sprout" class="mark-img">
       <div class="brand-text">Sprout<small>Personal Growth Tracker</small></div>
     </div>
     <div class="topbar-right">
+      <div class="settings-wrap">
+        <button class="icon-btn" id="settingsBtn" title="Appearance">⚙️</button>
+        <div class="settings-panel hidden" id="settingsPanel">
+          <div class="settings-title">Appearance</div>
+          <div class="theme-toggle">
+            <button class="theme-opt" id="themeLightBtn">☀️ Light</button>
+            <button class="theme-opt" id="themeDarkBtn">🌙 Dark</button>
+          </div>
+        </div>
+      </div>
       <div class="user-pill">
         <span class="dot" id="userInitial">?</span>
         <span id="userEmail">—</span>
@@ -305,21 +381,35 @@
 
   <!-- Hero -->
   <section class="hero">
-    <div class="ring-wrap">
-      <svg width="150" height="150" viewBox="0 0 150 150">
+    <div class="plant-wrap">
+      <svg viewBox="0 0 170 190" width="170" height="190">
         <defs>
-          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#8B5CF6"/>
-            <stop offset="100%" stop-color="#FBBF24"/>
+          <linearGradient id="potGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--gold)"/>
+            <stop offset="100%" stop-color="#92400E"/>
           </linearGradient>
         </defs>
-        <circle class="ring-bg" cx="75" cy="75" r="63"></circle>
-        <circle class="ring-fg" id="ringFg" cx="75" cy="75" r="63" stroke-dasharray="396" stroke-dashoffset="396"></circle>
+        <ellipse cx="85" cy="174" rx="30" ry="6" fill="var(--card-border)" opacity="0.6"></ellipse>
+        <polygon points="59,138 111,138 95,172 75,172" fill="url(#potGrad)"></polygon>
+        <rect x="54" y="130" width="62" height="10" rx="4" fill="var(--gold)"></rect>
+        <ellipse cx="85" cy="138" rx="25" ry="5.5" fill="#4B3621" opacity="0.4"></ellipse>
+        <line id="plantStem" x1="85" y1="136" x2="85" y2="55" stroke="var(--primary)" stroke-width="6" stroke-linecap="round" stroke-dasharray="81" stroke-dashoffset="81"></line>
+        <g id="leafPair1" class="leaf-pair">
+          <ellipse cx="66" cy="112" rx="17" ry="9" fill="var(--green)" transform="rotate(-35 66 112)"></ellipse>
+          <ellipse cx="104" cy="112" rx="17" ry="9" fill="var(--green)" transform="rotate(35 104 112)"></ellipse>
+        </g>
+        <g id="leafPair2" class="leaf-pair">
+          <ellipse cx="70" cy="86" rx="14" ry="7.5" fill="var(--primary-bright)" transform="rotate(-30 70 86)"></ellipse>
+          <ellipse cx="100" cy="86" rx="14" ry="7.5" fill="var(--primary-bright)" transform="rotate(30 100 86)"></ellipse>
+        </g>
+        <circle id="plantBud" cx="85" cy="50" r="9" fill="var(--gold)"></circle>
       </svg>
-      <div class="ring-center">
+      <div class="plant-caption">
         <div class="lvl-label">Level</div>
-        <div class="lvl-num" id="levelNum">1</div>
-        <div class="lvl-badge" id="levelBadge">🌱</div>
+        <div class="lvl-line">
+          <span class="lvl-num" id="levelNum">1</span>
+          <span class="lvl-badge" id="levelBadge">🌱</span>
+        </div>
       </div>
     </div>
     <div class="hero-stats">
@@ -346,6 +436,11 @@
       <div class="sub">Vs. previous month</div>
     </div>
     <div class="stat-card">
+      <div class="label">Day Streak</div>
+      <div class="value" id="statStreak">🔥 0</div>
+      <div class="sub" id="statStreakSub">Log today to start one</div>
+    </div>
+    <div class="stat-card">
       <div class="label">Entries Logged</div>
       <div class="value" id="statEntries">0</div>
       <div class="sub">Keep the streak going</div>
@@ -365,28 +460,39 @@
   <section class="section">
     <div class="section-head"><h2>Log an Entry</h2></div>
     <div class="entry-form">
-      <div class="field">
-        <label>Category</label>
-        <select id="entryCategory">
-          <option value="savings">🟣 Savings</option>
-          <option value="investments">🟢 Investments</option>
-          <option value="income">🟡 Income</option>
-          <option value="other">⚪ Other</option>
-        </select>
+      <div class="entry-row entry-row-top">
+        <div class="field">
+          <label>Category</label>
+          <select id="entryCategory">
+            <option value="savings">🟣 Savings</option>
+            <option value="investments">🟢 Investments</option>
+            <option value="income">🟡 Income</option>
+            <option value="other">⚪ Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <input id="entryAmount" type="number" step="0.01" placeholder="250.00">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input id="entryDate" type="date">
+        </div>
       </div>
-      <div class="field">
-        <label>Amount</label>
-        <input id="entryAmount" type="number" step="0.01" placeholder="250.00">
+      <div class="entry-row entry-row-bottom">
+        <div class="field">
+          <label>Note (optional)</label>
+          <input id="entryNote" type="text" placeholder="e.g. birthday money, paycheck">
+        </div>
+        <button class="btn btn-primary" id="addEntryBtn">+ Add Entry</button>
       </div>
-      <div class="field">
-        <label>Date</label>
-        <input id="entryDate" type="date">
+      <div class="quick-amounts">
+        <span class="qa-label">Quick add:</span>
+        <button type="button" class="chip-btn" data-amt="5">+$5</button>
+        <button type="button" class="chip-btn" data-amt="20">+$20</button>
+        <button type="button" class="chip-btn" data-amt="50">+$50</button>
+        <button type="button" class="chip-btn" data-amt="100">+$100</button>
       </div>
-      <div class="field">
-        <label>Note (optional)</label>
-        <input id="entryNote" type="text" placeholder="e.g. birthday money, paycheck">
-      </div>
-      <button class="btn btn-primary" id="addEntryBtn">+ Add Entry</button>
     </div>
   </section>
 
@@ -463,6 +569,28 @@ let goals = [];
 let chartInstance = null;
 let selectedEmoji = '🎯';
 const EMOJI_OPTIONS = ['🎯','🏠','✈️','🚗','🎓','💻','🛡️','🎮','💍','🏖️'];
+
+/* ---------------- Theme ---------------- */
+const THEME_KEY = 'sprout-theme';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeLightBtn').classList.toggle('active', theme === 'light');
+  document.getElementById('themeDarkBtn').classList.toggle('active', theme === 'dark');
+  localStorage.setItem(THEME_KEY, theme);
+  if (chartInstance) renderChart();
+}
+(function initTheme(){
+  const saved = localStorage.getItem(THEME_KEY);
+  applyTheme(saved === 'dark' ? 'dark' : 'light');
+})();
+document.getElementById('settingsBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('settingsPanel').classList.toggle('hidden');
+});
+document.getElementById('settingsPanel').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => document.getElementById('settingsPanel').classList.add('hidden'));
+document.getElementById('themeLightBtn').addEventListener('click', () => applyTheme('light'));
+document.getElementById('themeDarkBtn').addEventListener('click', () => applyTheme('dark'));
 
 /* ---------------- Auth ---------------- */
 let authMode = 'signin';
@@ -545,6 +673,16 @@ async function loadGoals(){
   if (error) { console.error(error); goals = []; return; }
   goals = data || [];
 }
+
+/* ---------------- Quick amount chips ---------------- */
+document.querySelectorAll('.chip-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const amtInput = document.getElementById('entryAmount');
+    const add = parseFloat(btn.dataset.amt);
+    const current = parseFloat(amtInput.value) || 0;
+    amtInput.value = (current + add).toFixed(2);
+  });
+});
 
 /* ---------------- Add entry ---------------- */
 document.getElementById('addEntryBtn').addEventListener('click', async () => {
@@ -643,7 +781,6 @@ function prevMonthChange(){
   return entries.filter(e => monthKey(e.entry_date) === key).reduce((s,e)=>s+Number(e.amount),0);
 }
 function levelFromTotal(total){
-  // Every $500 net worth of "growth" = 1 level, capped display-wise but uncapped internally
   const lvl = Math.max(1, Math.floor(total / 500) + 1);
   return lvl;
 }
@@ -660,6 +797,41 @@ function badgeForLevel(lvl){
   if (lvl >= 5) return '🥈';
   if (lvl >= 2) return '🥉';
   return '🌱';
+}
+
+/* Daily streak: consecutive days (including today or yesterday) with at least one entry */
+function computeStreak(){
+  if (entries.length === 0) return 0;
+  const uniqueDates = [...new Set(entries.map(e => e.entry_date))].sort().reverse();
+  const oneDay = 86400000;
+  const todayStr = new Date().toISOString().slice(0,10);
+  const today = new Date(todayStr + 'T00:00:00');
+  const mostRecent = new Date(uniqueDates[0] + 'T00:00:00');
+  const gap = Math.round((today - mostRecent) / oneDay);
+  if (gap > 1) return 0; // streak broken — no entry today or yesterday
+
+  let streak = 0;
+  let expected = mostRecent;
+  for (const d of uniqueDates) {
+    const dt = new Date(d + 'T00:00:00');
+    if (dt.getTime() === expected.getTime()) {
+      streak++;
+      expected = new Date(expected.getTime() - oneDay);
+    } else if (dt.getTime() < expected.getTime()) {
+      break;
+    }
+  }
+  return streak;
+}
+
+/* ---------------- Plant growth visual ---------------- */
+function renderPlant(pct){
+  const stemLen = 81;
+  const offset = stemLen - (pct/100) * stemLen;
+  document.getElementById('plantStem').style.strokeDashoffset = offset;
+  document.getElementById('leafPair1').classList.toggle('show', pct >= 25);
+  document.getElementById('leafPair2').classList.toggle('show', pct >= 60);
+  document.getElementById('plantBud').classList.toggle('show', pct >= 90);
 }
 
 /* ---------------- Render ---------------- */
@@ -686,14 +858,11 @@ function render(){
     changeEl.textContent = '— no change this month';
   }
 
-  // Level ring
+  // Plant / level
   const { lvl, pct, remaining } = levelProgress(total);
   document.getElementById('levelNum').textContent = lvl;
   document.getElementById('levelBadge').textContent = badgeForLevel(lvl);
-  const circumference = 2 * Math.PI * 63;
-  const offset = circumference - (pct/100) * circumference;
-  document.getElementById('ringFg').style.strokeDasharray = circumference;
-  document.getElementById('ringFg').style.strokeDashoffset = offset;
+  renderPlant(pct);
   document.getElementById('xpFill').style.width = pct.toFixed(1) + '%';
   document.getElementById('xpCaption').textContent = total <= 0
     ? 'Add entries to reach Level 2'
@@ -708,6 +877,12 @@ function render(){
   document.getElementById('statGrowth').textContent = (growthPct>=0?'+':'') + growthPct.toFixed(1) + '%';
   document.getElementById('statGrowth').style.color = growthPct >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('statEntries').textContent = entries.length;
+
+  const streak = computeStreak();
+  document.getElementById('statStreak').textContent = '🔥 ' + streak;
+  document.getElementById('statStreakSub').textContent = streak === 0
+    ? 'Log today to start one'
+    : (streak === 1 ? 'Nice — log again tomorrow' : 'days in a row, keep it up');
 
   renderChart();
   renderLedger();
@@ -731,12 +906,19 @@ function renderChart(){
     : 'No data yet';
 
   if (chartInstance) chartInstance.destroy();
-
   if (sorted.length === 0) return;
 
+  const styles = getComputedStyle(document.documentElement);
+  const primaryRgb = styles.getPropertyValue('--primary-rgb').trim();
+  const primaryBright = styles.getPropertyValue('--primary-bright').trim();
+  const gold = styles.getPropertyValue('--gold').trim();
+  const card = styles.getPropertyValue('--card').trim();
+  const muted = styles.getPropertyValue('--text-muted').trim();
+  const gridColor = styles.getPropertyValue('--chart-grid').trim();
+
   const gradient = ctx.getContext('2d').createLinearGradient(0,0,0,230);
-  gradient.addColorStop(0, 'rgba(139,92,246,0.45)');
-  gradient.addColorStop(1, 'rgba(139,92,246,0.02)');
+  gradient.addColorStop(0, `rgba(${primaryRgb},0.42)`);
+  gradient.addColorStop(1, `rgba(${primaryRgb},0.02)`);
 
   chartInstance = new Chart(ctx, {
     type: 'line',
@@ -744,15 +926,15 @@ function renderChart(){
       labels,
       datasets: [{
         data,
-        borderColor: '#A78BFA',
+        borderColor: primaryBright,
         backgroundColor: gradient,
         borderWidth: 2.5,
         fill: true,
         tension: 0.35,
         pointRadius: 0,
         pointHoverRadius: 5,
-        pointHoverBackgroundColor: '#FBBF24',
-        pointHoverBorderColor: '#1B1333',
+        pointHoverBackgroundColor: gold,
+        pointHoverBorderColor: card,
       }]
     },
     options: {
@@ -760,8 +942,8 @@ function renderChart(){
       maintainAspectRatio: false,
       plugins: { legend: { display:false } },
       scales: {
-        x: { grid: { display:false }, ticks: { color:'#6B6289', font:{ family:'Inter', size:11 } } },
-        y: { grid: { color:'rgba(46,35,80,0.5)' }, ticks: { color:'#6B6289', font:{ family:'IBM Plex Mono', size:10 },
+        x: { grid: { display:false }, ticks: { color: muted, font:{ family:'Inter', size:11 } } },
+        y: { grid: { color: gridColor }, ticks: { color: muted, font:{ family:'IBM Plex Mono', size:10 },
               callback: v => '$' + v.toLocaleString() } }
       }
     }
