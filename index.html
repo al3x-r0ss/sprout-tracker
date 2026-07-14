@@ -157,6 +157,11 @@
     color:var(--text-secondary); font-size:12.5px; font-weight:600; transition:border-color .15s, background .15s, color .15s;
   }
   .theme-opt.active{ border-color:var(--primary); background:rgba(124,58,237,0.12); color:var(--primary); }
+  .currency-select{
+    width:100%; margin-top:6px; padding:8px 10px; border-radius:8px; border:1px solid var(--card-border);
+    background:var(--bg-elevated); color:var(--text-primary); font-size:12.5px; outline:none;
+  }
+  .currency-select:focus{ border-color:var(--primary); }
 
   /* ---------- Hero: growing plant ---------- */
   .hero{
@@ -221,20 +226,26 @@
 
   /* Add entry form */
   .entry-row{ display:grid; gap:10px; }
-  .entry-row-top{ grid-template-columns:repeat(3, 1fr); margin-bottom:10px; }
-  .entry-row-bottom{ grid-template-columns:1fr auto; align-items:end; }
-  .entry-form .field{ margin-bottom:0; }
+  .entry-row-top{ grid-template-columns:repeat(3, minmax(0,1fr)); margin-bottom:10px; }
+  .entry-row-bottom{ grid-template-columns:minmax(0,1fr) auto; align-items:end; }
+  .entry-form .field{ margin-bottom:0; min-width:0; }
   .entry-form select, .entry-form input{
-    width:100%; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid var(--card-border);
-    background:var(--bg-elevated); color:var(--text-primary); font-size:13.5px; outline:none;
+    width:100%; min-width:0; box-sizing:border-box; height:42px; padding:0 12px; border-radius:var(--radius-sm); border:1px solid var(--card-border);
+    background:var(--bg-elevated); color:var(--text-primary); font-size:13.5px; line-height:40px; outline:none;
+    -webkit-appearance:none; appearance:none;
   }
+  .entry-form input[type="date"]{
+    font-size:13px; padding:0 8px;
+  }
+  .entry-form input[type="date"]::-webkit-date-and-time-value{ text-align:left; }
   .entry-form select:focus, .entry-form input:focus{ border-color:var(--primary); }
   .entry-form .btn-primary{ padding:10px 22px; white-space:nowrap; width:auto; }
-  .quick-amounts{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; align-items:center; }
-  .quick-amounts .qa-label{ font-size:11.5px; color:var(--text-muted); margin-right:2px; }
+  .quick-amounts{ display:flex; gap:8px; margin-top:22px; flex-wrap:nowrap; align-items:center; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .quick-amounts::-webkit-scrollbar{ display:none; }
+  .quick-amounts .qa-label{ font-size:11.5px; color:var(--text-muted); margin-right:2px; flex-shrink:0; }
   .chip-btn{
     padding:6px 13px; border-radius:999px; border:1px solid var(--card-border); background:var(--bg-elevated);
-    color:var(--text-secondary); font-size:12.5px; font-weight:600; transition:border-color .15s, color .15s;
+    color:var(--text-secondary); font-size:12.5px; font-weight:600; transition:border-color .15s, color .15s; flex-shrink:0;
   }
   .chip-btn:hover{ border-color:var(--primary); color:var(--primary); }
 
@@ -315,15 +326,15 @@
   @media (max-width:720px){
     .hero{ grid-template-columns:1fr; text-align:center; justify-items:center; }
     .stat-grid{ grid-template-columns:1fr 1fr; }
-    .entry-row-top{ grid-template-columns:1fr 1fr; }
-    .entry-row-bottom{ grid-template-columns:1fr; }
+    .entry-row-top{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .entry-row-bottom{ grid-template-columns:minmax(0,1fr); }
     .entry-form .btn-primary{ width:100%; }
     table{ font-size:12px; }
     thead th:nth-child(4), tbody td:nth-child(4){ display:none; }
   }
   @media (max-width:420px){
     .stat-grid{ grid-template-columns:1fr 1fr; }
-    .entry-row-top{ grid-template-columns:1fr; }
+    .entry-row-top{ grid-template-columns:minmax(0,1fr); }
   }
   @media (prefers-reduced-motion: reduce){
     *{ transition:none !important; animation:none !important; }
@@ -376,6 +387,16 @@
             <button class="theme-opt" id="themeLightBtn">☀️ Light</button>
             <button class="theme-opt" id="themeDarkBtn">🌙 Dark</button>
           </div>
+          <div class="settings-title" style="margin-top:14px;">Currency</div>
+          <select id="currencySelect" class="currency-select">
+            <option value="USD">$ USD</option>
+            <option value="GBP">£ GBP</option>
+            <option value="EUR">€ EUR</option>
+            <option value="JPY">¥ JPY</option>
+            <option value="AUD">A$ AUD</option>
+            <option value="CAD">C$ CAD</option>
+            <option value="INR">₹ INR</option>
+          </select>
         </div>
       </div>
     </div>
@@ -574,6 +595,34 @@ let goals = [];
 let chartInstance = null;
 let selectedEmoji = '🎯';
 const EMOJI_OPTIONS = ['🎯','🏠','✈️','🚗','🎓','💻','🛡️','🎮','💍','🏖️'];
+
+/* ---------------- Currency ---------------- */
+const CURRENCY_KEY = 'sprout-currency';
+const CURRENCIES = {
+  USD:{symbol:'$'}, GBP:{symbol:'£'}, EUR:{symbol:'€'}, JPY:{symbol:'¥'},
+  AUD:{symbol:'A$'}, CAD:{symbol:'C$'}, INR:{symbol:'₹'}
+};
+let currentCurrency = 'USD';
+function sym(){ return CURRENCIES[currentCurrency].symbol; }
+function updateQuickAddLabels(){
+  document.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.textContent = '+' + sym() + btn.dataset.amt;
+  });
+}
+function applyCurrency(code){
+  currentCurrency = CURRENCIES[code] ? code : 'USD';
+  localStorage.setItem(CURRENCY_KEY, currentCurrency);
+  document.getElementById('currencySelect').value = currentCurrency;
+  updateQuickAddLabels();
+  if (currentUser) render();
+}
+(function initCurrency(){
+  const saved = localStorage.getItem(CURRENCY_KEY);
+  currentCurrency = saved && CURRENCIES[saved] ? saved : 'USD';
+  document.getElementById('currencySelect').value = currentCurrency;
+  updateQuickAddLabels();
+})();
+document.getElementById('currencySelect').addEventListener('change', (e) => applyCurrency(e.target.value));
 
 /* ---------------- Theme ---------------- */
 const THEME_KEY = 'sprout-theme';
@@ -844,7 +893,7 @@ function render(){
   const total = totalBalance();
   const [dollars, cents] = Math.abs(total).toFixed(2).split('.');
   document.getElementById('heroTotal').innerHTML =
-    (total < 0 ? '-$' : '$') + Number(dollars).toLocaleString() + '<span class="cents">.' + cents + '</span>';
+    (total < 0 ? '-' + sym() : sym()) + Number(dollars).toLocaleString() + '<span class="cents">.' + cents + '</span>';
 
   const mChange = thisMonthChange();
   const pChange = prevMonthChange();
@@ -854,10 +903,10 @@ function render(){
     changeEl.textContent = '— no entries yet';
   } else if (mChange > 0) {
     changeEl.className = 'hero-change up';
-    changeEl.textContent = '▲ +$' + mChange.toLocaleString(undefined,{maximumFractionDigits:2}) + ' this month';
+    changeEl.textContent = '▲ +' + sym() + mChange.toLocaleString(undefined,{maximumFractionDigits:2}) + ' this month';
   } else if (mChange < 0) {
     changeEl.className = 'hero-change down';
-    changeEl.textContent = '▼ -$' + Math.abs(mChange).toLocaleString(undefined,{maximumFractionDigits:2}) + ' this month';
+    changeEl.textContent = '▼ -' + sym() + Math.abs(mChange).toLocaleString(undefined,{maximumFractionDigits:2}) + ' this month';
   } else {
     changeEl.className = 'hero-change flat';
     changeEl.textContent = '— no change this month';
@@ -871,10 +920,10 @@ function render(){
   document.getElementById('xpFill').style.width = pct.toFixed(1) + '%';
   document.getElementById('xpCaption').textContent = total <= 0
     ? 'Add entries to reach Level 2'
-    : '$' + remaining.toLocaleString(undefined,{maximumFractionDigits:0}) + ' to Level ' + (lvl+1);
+    : sym() + remaining.toLocaleString(undefined,{maximumFractionDigits:0}) + ' to Level ' + (lvl+1);
 
   // Stat grid
-  document.getElementById('statMonth').textContent = (mChange<0?'-':'') + '$' + Math.abs(mChange).toLocaleString(undefined,{maximumFractionDigits:2});
+  document.getElementById('statMonth').textContent = (mChange<0?'-':'') + sym() + Math.abs(mChange).toLocaleString(undefined,{maximumFractionDigits:2});
   document.getElementById('statMonth').style.color = mChange > 0 ? 'var(--green)' : (mChange < 0 ? 'var(--red)' : 'var(--text-primary)');
   let growthPct = 0;
   if (pChange !== 0) growthPct = ((mChange - pChange) / Math.abs(pChange)) * 100;
@@ -949,7 +998,7 @@ function renderChart(){
       scales: {
         x: { grid: { display:false }, ticks: { color: muted, font:{ family:'Inter', size:11 } } },
         y: { grid: { color: gridColor }, ticks: { color: muted, font:{ family:'IBM Plex Mono', size:10 },
-              callback: v => '$' + v.toLocaleString() } }
+              callback: v => sym() + v.toLocaleString() } }
       }
     }
   });
@@ -971,7 +1020,7 @@ function renderLedger(){
       <td>${new Date(e.entry_date + 'T00:00:00').toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'})}</td>
       <td><span class="cat-chip ${cls}">${label}</span></td>
       <td style="color:var(--text-secondary)">${e.note ? escapeHtml(e.note) : '—'}</td>
-      <td class="amt ${e.amount<0?'neg':'pos'}">${e.amount<0?'-':'+'}$${Math.abs(e.amount).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+      <td class="amt ${e.amount<0?'neg':'pos'}">${e.amount<0?'-':'+'}${sym()}${Math.abs(e.amount).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
       <td><button class="row-del" data-id="${e.id}">✕</button></td>
     `;
     body.appendChild(tr);
@@ -999,7 +1048,7 @@ function renderGoals(){
       <button class="goal-del" data-id="${g.id}">✕</button>
       <div class="goal-top"><span class="goal-emoji">${g.emoji || '🎯'}</span>${complete ? '<span style="font-size:11px;color:var(--gold);font-weight:700;">COMPLETE 🎉</span>' : ''}</div>
       <div class="goal-title">${escapeHtml(g.title)}</div>
-      <div class="goal-amounts">$${Math.max(0,total).toLocaleString(undefined,{maximumFractionDigits:0})} / $${Number(g.target_amount).toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+      <div class="goal-amounts">${sym()}${Math.max(0,total).toLocaleString(undefined,{maximumFractionDigits:0})} / ${sym()}${Number(g.target_amount).toLocaleString(undefined,{maximumFractionDigits:0})}</div>
       <div class="goal-bar-bg"><div class="goal-bar-fill ${complete?'done':''}" style="width:${Math.max(0,pct)}%"></div></div>
       <div class="goal-pct">${Math.max(0,pct).toFixed(0)}% funded</div>
     `;
