@@ -131,8 +131,9 @@
   .user-pill{
     display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--card-border);
     padding:7px 12px 7px 7px; border-radius:999px; font-size:12.5px; color:var(--text-secondary);
-    transition:background-color .3s ease, border-color .3s ease;
+    transition:background-color .3s ease, border-color .15s, transform .15s; cursor:pointer;
   }
+  .user-pill:hover{ border-color:var(--card-border-hover); transform:translateY(-1px); }
   .user-pill .dot{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#fff; }
   .foot-signout{
     margin-top:12px; background:none; border:1px solid var(--card-border); color:var(--text-muted);
@@ -303,7 +304,27 @@
   }
   .modal{
     background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
-    padding:26px 26px 24px; width:100%; max-width:340px;
+    padding:26px 26px 24px; width:100%; max-width:340px; position:relative;
+  }
+  .modal-wide{ max-width:440px; }
+  .modal-close{
+    position:absolute; top:16px; right:16px; background:none; border:none; color:var(--text-muted);
+    font-size:16px; width:28px; height:28px; border-radius:50%; transition:background .15s, color .15s;
+  }
+  .modal-close:hover{ background:var(--bg-elevated); color:var(--text-primary); }
+  .profile-header{ display:flex; align-items:center; gap:14px; margin-bottom:20px; padding-right:20px; }
+  .profile-avatar{
+    width:52px; height:52px; border-radius:50%; flex-shrink:0; background:linear-gradient(135deg,var(--primary),var(--gold));
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:22px; color:#fff;
+  }
+  .profile-email{ font-weight:700; font-size:15px; word-break:break-word; }
+  .profile-member-since{ font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .profile-stats-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .profile-stat{ background:var(--bg-elevated); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:12px 14px; }
+  .profile-stat .label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); font-weight:700; margin-bottom:5px; }
+  .profile-stat .value{ font-family:var(--font-mono); font-size:16px; font-weight:600; }
+  @media (max-width:420px){
+    .profile-stats-grid{ grid-template-columns:1fr 1fr; }
   }
   .modal h3{ font-family:var(--font-display); font-size:16px; margin-bottom:16px; }
   .modal-actions{ display:flex; gap:10px; margin-top:18px; }
@@ -375,7 +396,7 @@
       <div class="brand-text">Sprout</div>
     </div>
     <div class="topbar-right">
-      <div class="user-pill">
+      <div class="user-pill" id="userPillBtn">
         <span class="dot" id="userInitial">?</span>
         <span id="userEmail">—</span>
       </div>
@@ -578,6 +599,21 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Profile modal -->
+<div class="modal-overlay hidden" id="profileModal">
+  <div class="modal modal-wide">
+    <button class="modal-close" id="profileCloseBtn">✕</button>
+    <div class="profile-header">
+      <div class="profile-avatar" id="profileAvatar">?</div>
+      <div>
+        <div class="profile-email" id="profileEmail">—</div>
+        <div class="profile-member-since" id="profileMemberSince">—</div>
+      </div>
+    </div>
+    <div class="profile-stats-grid" id="profileStatsGrid"></div>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -878,6 +914,29 @@ function computeStreak(){
   return streak;
 }
 
+/* Longest streak ever achieved (consecutive days with an entry) */
+function computeLongestStreak(){
+  if (entries.length === 0) return 0;
+  const dates = [...new Set(entries.map(e => e.entry_date))].sort();
+  let longest = 1, current = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const prev = new Date(dates[i-1] + 'T00:00:00');
+    const cur = new Date(dates[i] + 'T00:00:00');
+    const diff = Math.round((cur - prev) / 86400000);
+    if (diff === 1) { current++; longest = Math.max(longest, current); }
+    else if (diff > 1) { current = 1; }
+  }
+  return longest;
+}
+
+function mostFrequentCategory(){
+  if (entries.length === 0) return '—';
+  const counts = {};
+  entries.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1; });
+  const top = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+  return (CAT_LABELS[top[0]] ? CAT_LABELS[top[0]][0] : top[0]);
+}
+
 /* ---------------- Plant growth visual ---------------- */
 function renderPlant(pct){
   const stemLen = 81;
@@ -1082,6 +1141,56 @@ function showToast(msg){
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------------- Profile modal ---------------- */
+document.getElementById('userPillBtn').addEventListener('click', () => {
+  document.getElementById('profileEmail').textContent = currentUser.email;
+  document.getElementById('profileAvatar').textContent = currentUser.email[0].toUpperCase();
+  const created = currentUser.created_at ? new Date(currentUser.created_at) : null;
+  document.getElementById('profileMemberSince').textContent = created
+    ? 'Member since ' + created.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    : '';
+  renderProfileStats();
+  document.getElementById('profileModal').classList.remove('hidden');
+});
+document.getElementById('profileCloseBtn').addEventListener('click', () => {
+  document.getElementById('profileModal').classList.add('hidden');
+});
+document.getElementById('profileModal').addEventListener('click', (e) => {
+  if (e.target.id === 'profileModal') document.getElementById('profileModal').classList.add('hidden');
+});
+
+function renderProfileStats(){
+  const total = totalBalance();
+  const { lvl } = levelProgress(total);
+  const current = computeStreak();
+  const longest = computeLongestStreak();
+  const best = entries.length ? Math.max(...entries.map(e => Number(e.amount))) : 0;
+  const avg = entries.length ? total / entries.length : 0;
+  const topCat = mostFrequentCategory();
+  const completedGoals = goals.filter(g => total >= Number(g.target_amount)).length;
+  const yr = new Date().getFullYear();
+  const yearTotal = entries
+    .filter(e => e.entry_date.slice(0,4) === String(yr))
+    .reduce((s,e) => s + Number(e.amount), 0);
+
+  const stats = [
+    { label:'Total Balance', value: '$' + total.toLocaleString(undefined,{maximumFractionDigits:2}) },
+    { label:'Level', value: lvl + ' ' + badgeForLevel(lvl) },
+    { label:'Entries Logged', value: entries.length },
+    { label:'Current Streak', value: '🔥 ' + current + (current === 1 ? ' day' : ' days') },
+    { label:'Longest Streak', value: '🏆 ' + longest + (longest === 1 ? ' day' : ' days') },
+    { label:'Best Entry', value: '$' + best.toLocaleString(undefined,{maximumFractionDigits:2}) },
+    { label:'Average Entry', value: '$' + avg.toLocaleString(undefined,{maximumFractionDigits:2}) },
+    { label:'Top Category', value: topCat },
+    { label:'Goals Completed', value: completedGoals + ' / ' + goals.length },
+    { label:'Logged in ' + yr, value: '$' + yearTotal.toLocaleString(undefined,{maximumFractionDigits:2}) },
+  ];
+
+  document.getElementById('profileStatsGrid').innerHTML = stats.map(s => `
+    <div class="profile-stat"><div class="label">${s.label}</div><div class="value">${s.value}</div></div>
+  `).join('');
 }
 
 /* ---------------- Init ---------------- */
